@@ -625,8 +625,8 @@ curl -X GET http://localhost:3000/api/v1/users/current \
 ## 📚 Additional Documentation
 
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Comprehensive configuration documentation with examples
-- **[API Specification](api/api-spec.json)** - OpenAPI/Swagger documentation *(to be updated)*
-- **[Testing Guide](docs/TESTING.md)** - Full testing documentation *(coming soon)*
+- **[API Specification](api/api-spec.json)** - OpenAPI/Swagger documentation
+- **[Testing Guide](docs/TESTING.md)** - Full testing documentation
 
 ## 🤝 Contributing
 
