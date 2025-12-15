@@ -20,5 +20,10 @@
       "max": 100,
       "lifetime": 300
     }
+  },
+  "jwt": {
+    "secret": "your-secret-key-change-in-production",
+    "access_expire_minutes": 60,
+    "refresh_expire_days": 7
   }
 }

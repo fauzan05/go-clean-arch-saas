@@ -7,38 +7,59 @@ import (
 )
 
 type RouteConfig struct {
-	App               *fiber.App
-	UserController    *http.UserController
-	ContactController *http.ContactController
-	AddressController *http.AddressController
-	AuthMiddleware    fiber.Handler
+	App                    *fiber.App
+	AuthController         *http.AuthController
+	UserController         *http.UserController
+	OrganizationController *http.OrganizationController
+	SubscriptionController *http.SubscriptionController
+	HealthController       *http.HealthController
+	AuthMiddleware         fiber.Handler
 }
 
 func (c *RouteConfig) Setup() {
-	c.SetupGuestRoute()
-	c.SetupAuthRoute()
+	c.SetupHealthRoutes()
+	c.SetupGuestRoutes()
+	c.SetupAuthRoutes()
 }
 
-func (c *RouteConfig) SetupGuestRoute() {
-	c.App.Post("/api/users", c.UserController.Register)
-	c.App.Post("/api/users/_login", c.UserController.Login)
+func (c *RouteConfig) SetupHealthRoutes() {
+	c.App.Get("/health", c.HealthController.Health)
+	c.App.Get("/ready", c.HealthController.Ready)
 }
 
-func (c *RouteConfig) SetupAuthRoute() {
-	c.App.Use(c.AuthMiddleware)
-	c.App.Delete("/api/users", c.UserController.Logout)
-	c.App.Patch("/api/users/_current", c.UserController.Update)
-	c.App.Get("/api/users/_current", c.UserController.Current)
+func (c *RouteConfig) SetupGuestRoutes() {
+	api := c.App.Group("/api/v1")
 
-	c.App.Get("/api/contacts", c.ContactController.List)
-	c.App.Post("/api/contacts", c.ContactController.Create)
-	c.App.Put("/api/contacts/:contactId", c.ContactController.Update)
-	c.App.Get("/api/contacts/:contactId", c.ContactController.Get)
-	c.App.Delete("/api/contacts/:contactId", c.ContactController.Delete)
+	// Auth routes
+	auth := api.Group("/auth")
+	auth.Post("/register", c.AuthController.Register)
+	auth.Post("/login", c.AuthController.Login)
+	auth.Post("/refresh", c.AuthController.Refresh)
+}
 
-	c.App.Get("/api/contacts/:contactId/addresses", c.AddressController.List)
-	c.App.Post("/api/contacts/:contactId/addresses", c.AddressController.Create)
-	c.App.Put("/api/contacts/:contactId/addresses/:addressId", c.AddressController.Update)
-	c.App.Get("/api/contacts/:contactId/addresses/:addressId", c.AddressController.Get)
-	c.App.Delete("/api/contacts/:contactId/addresses/:addressId", c.AddressController.Delete)
+func (c *RouteConfig) SetupAuthRoutes() {
+	api := c.App.Group("/api/v1")
+	api.Use(c.AuthMiddleware)
+
+	// Auth routes (authenticated)
+	auth := api.Group("/auth")
+	auth.Delete("/logout", c.AuthController.Logout)
+
+	// User routes
+	users := api.Group("/users")
+	users.Get("/current", c.UserController.Current)
+	users.Patch("/current", c.UserController.Update)
+
+	// Organization routes
+	orgs := api.Group("/organizations")
+	orgs.Get("/current", c.OrganizationController.GetCurrent)
+	orgs.Patch("/current", c.OrganizationController.Update)
+	orgs.Get("/members", c.OrganizationController.ListMembers)
+	orgs.Delete("/members/:userId", c.OrganizationController.RemoveMember)
+
+	// Subscription routes
+	subs := api.Group("/subscriptions")
+	subs.Get("/current", c.SubscriptionController.GetCurrent)
+	subs.Post("/upgrade", c.SubscriptionController.Upgrade)
+	subs.Post("/cancel", c.SubscriptionController.Cancel)
 }

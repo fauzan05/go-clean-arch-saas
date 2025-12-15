@@ -23,30 +23,62 @@ type BootstrapConfig struct {
 }
 
 func Bootstrap(config *BootstrapConfig) {
+	// setup JWT service
+	jwtService := NewJWT(config.Config)
+
 	// setup repositories
 	userRepository := repository.NewUserRepository(config.Log)
-	contactRepository := repository.NewContactRepository(config.Log)
-	addressRepository := repository.NewAddressRepository(config.Log)
+	organizationRepository := repository.NewOrganizationRepository(config.Log)
+	organizationMemberRepository := repository.NewOrganizationMemberRepository(config.Log)
+	planRepository := repository.NewPlanRepository(config.Log)
+	subscriptionRepository := repository.NewSubscriptionRepository(config.Log)
 
 	// setup use cases
+	authUseCase := usecase.NewAuthUseCase(
+		config.DB,
+		config.Log,
+		config.Validate,
+		userRepository,
+		organizationRepository,
+		organizationMemberRepository,
+		planRepository,
+		subscriptionRepository,
+		jwtService,
+	)
 	userUseCase := usecase.NewUserUseCase(config.DB, config.Log, config.Validate, userRepository)
-	contactUseCase := usecase.NewContactUseCase(config.DB, config.Log, config.Validate, contactRepository)
-	addressUseCase := usecase.NewAddressUseCase(config.DB, config.Log, config.Validate, contactRepository, addressRepository)
+	organizationUseCase := usecase.NewOrganizationUseCase(
+		config.DB,
+		config.Log,
+		config.Validate,
+		organizationRepository,
+		organizationMemberRepository,
+	)
+	subscriptionUseCase := usecase.NewSubscriptionUseCase(
+		config.DB,
+		config.Log,
+		config.Validate,
+		subscriptionRepository,
+		planRepository,
+	)
 
-	// setup controller
+	// setup controllers
+	authController := http.NewAuthController(authUseCase, config.Log)
 	userController := http.NewUserController(userUseCase, config.Log)
-	contactController := http.NewContactController(contactUseCase, config.Log)
-	addressController := http.NewAddressController(addressUseCase, config.Log)
+	organizationController := http.NewOrganizationController(organizationUseCase, config.Log)
+	subscriptionController := http.NewSubscriptionController(subscriptionUseCase, config.Log)
+	healthController := http.NewHealthController(config.DB, config.Log)
 
 	// setup middleware
-	authMiddleware := middleware.NewAuth(userUseCase)
+	authMiddleware := middleware.NewAuth(authUseCase)
 
 	routeConfig := route.RouteConfig{
-		App:               config.App,
-		UserController:    userController,
-		ContactController: contactController,
-		AddressController: addressController,
-		AuthMiddleware:    authMiddleware,
+		App:                    config.App,
+		AuthController:         authController,
+		UserController:         userController,
+		OrganizationController: organizationController,
+		SubscriptionController: subscriptionController,
+		HealthController:       healthController,
+		AuthMiddleware:         authMiddleware,
 	}
 	routeConfig.Setup()
 }
