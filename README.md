@@ -118,6 +118,12 @@ make migrate-up
 
 # (Optional) Seed with demo data
 make seed
+
+# What's seeded:
+# - 3 Plans: Free ($0), Pro ($29), Enterprise ($99)
+# - 1 Demo organization (demo-org)
+# - 1 Demo user (demo@example.com / password123)
+# - 1 Free subscription for the demo org
 ```
 
 ### 3. Run Application
@@ -317,12 +323,22 @@ UPDATE users SET deleted_at = NULL WHERE id = ?
 
 Each `deleted_at` column has an index (e.g., `idx_users_deleted`) for optimal query performance.
 
-### Default Plans
+### Default Plans & Demo Data
 
-The seed script creates three plans:
-- **Free**: $0/month - Basic features for testing
-- **Pro**: $29/month - Advanced features for growing teams
-- **Enterprise**: $99/month - Full features with priority support
+The seed script (`make seed`) creates:
+
+**Plans:**
+- **Free**: $0/month - 1GB storage, 1 user, 1K API calls/month
+- **Pro**: $29/month - 50GB storage, 10 users, 100K API calls/month
+- **Enterprise**: $99/month - Unlimited storage, unlimited users, unlimited API calls
+
+**Demo Credentials:**
+- Email: `demo@example.com`
+- Password: `password123`
+- Organization: Demo Organization (slug: `demo-org`)
+- Subscription: Free plan
+
+All seeded records use proper UUID format (CHAR(36)) and have `deleted_at = NULL` (not soft deleted).
 
 ## 🔐 Authentication Flow
 
@@ -456,11 +472,41 @@ The `audit_logs` table is created but not actively used. To implement:
 
 ## 🔥 Quick Test
 
+### Option 1: Using Demo Credentials (After Seeding)
+
 ```bash
 # Start the server
 make dev
 
-# Register a new user
+# Run migrations and seed demo data
+make migrate-up
+make seed
+
+# Login with demo account
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "demo@example.com",
+    "password": "password123"
+  }'
+
+# Use the access_token from login response
+curl -X GET http://localhost:3000/api/v1/users/current \
+  -H "Authorization: Bearer <your-access-token>"
+
+# Get current organization
+curl -X GET http://localhost:3000/api/v1/organizations/current \
+  -H "Authorization: Bearer <your-access-token>"
+
+# Get current subscription (Free plan)
+curl -X GET http://localhost:3000/api/v1/subscriptions/current \
+  -H "Authorization: Bearer <your-access-token>"
+```
+
+### Option 2: Register New User
+
+```bash
+# Register a new user (creates new org + free subscription)
 curl -X POST http://localhost:3000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
@@ -470,15 +516,7 @@ curl -X POST http://localhost:3000/api/v1/auth/register \
     "organization_name": "Acme Corp"
   }'
 
-# Login
-curl -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "john@example.com",
-    "password": "password123"
-  }'
-
-# Use the access_token from login response
+# The response includes access_token - use it for authenticated requests
 curl -X GET http://localhost:3000/api/v1/users/current \
   -H "Authorization: Bearer <your-access-token>"
 ```
