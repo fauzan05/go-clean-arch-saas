@@ -12,6 +12,7 @@ type AuditLog struct {
 	IPAddress      string       `gorm:"column:ip_address"`
 	UserAgent      string       `gorm:"column:user_agent"`
 	CreatedAt      int64        `gorm:"column:created_at;autoCreateTime:milli"`
+	DeletedAt      *int64       `gorm:"column:deleted_at;index:idx_audit_deleted"`
 	User           User         `gorm:"foreignKey:user_id;references:id"`
 	Organization   Organization `gorm:"foreignKey:organization_id;references:id"`
 }

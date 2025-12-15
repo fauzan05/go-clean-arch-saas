@@ -1,6 +1,7 @@
 {
   "app": {
-    "name": "go-clean-arch-saas"
+    "name": "go-clean-arch-saas",
+    "env": "development"
   },
   "web": {
     "prefork": false,
@@ -22,8 +23,17 @@
     }
   },
   "jwt": {
-    "secret": "your-secret-key-change-in-production",
+    "secret": "your-secret-key-change-in-production-min-32-chars",
     "access_expire_minutes": 60,
     "refresh_expire_days": 7
+  },
+  "cors": {
+    "allowed_origins": "http://localhost:3000,http://localhost:8080",
+    "allowed_methods": "GET,POST,PUT,PATCH,DELETE",
+    "allowed_headers": "Origin,Content-Type,Accept,Authorization"
+  },
+  "rate_limit": {
+    "enabled": false,
+    "rpm": 1000
   }
 }

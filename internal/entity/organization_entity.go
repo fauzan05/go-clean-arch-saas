@@ -7,6 +7,7 @@ type Organization struct {
 	Slug      string               `gorm:"column:slug;unique"`
 	CreatedAt int64                `gorm:"column:created_at;autoCreateTime:milli"`
 	UpdatedAt int64                `gorm:"column:updated_at;autoCreateTime:milli;autoUpdateTime:milli"`
+	DeletedAt *int64               `gorm:"column:deleted_at;index:idx_org_deleted"`
 	Members   []OrganizationMember `gorm:"foreignKey:organization_id;references:id"`
 	Users     []User               `gorm:"foreignKey:organization_id;references:id"`
 }

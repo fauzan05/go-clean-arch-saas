@@ -11,6 +11,7 @@ type User struct {
 	OrganizationID        string       `gorm:"column:organization_id"`
 	CreatedAt             int64        `gorm:"column:created_at;autoCreateTime:milli"`
 	UpdatedAt             int64        `gorm:"column:updated_at;autoCreateTime:milli;autoUpdateTime:milli"`
+	DeletedAt             *int64       `gorm:"column:deleted_at;index:idx_users_deleted"`
 	Organization          Organization `gorm:"foreignKey:organization_id;references:id"`
 }
 
