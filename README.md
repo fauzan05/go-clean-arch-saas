@@ -24,7 +24,6 @@ This is golang clean architecture template.
 
 - Golang : https://github.com/golang/go
 - MySQL (Database) : https://github.com/mysql/mysql-server
-- Apache Kafka : https://github.com/apache/kafka
 
 ## Framework & Library
 
@@ -34,7 +33,6 @@ This is golang clean architecture template.
 - Golang Migrate (Database Migration) : https://github.com/golang-migrate/migrate
 - Go Playground Validator (Validation) : https://github.com/go-playground/validator
 - Logrus (Logger) : https://github.com/sirupsen/logrus
-- Sarama (Kafka Client) : https://github.com/IBM/sarama
 
 ## Configuration
 
@@ -57,7 +55,7 @@ migrate create -ext sql -dir db/migrations create_table_xxx
 ### Run Migration
 
 ```shell
-migrate -database "mysql://root:@tcp(localhost:3306)/golang_clean_architecture?charset=utf8mb4&parseTime=True&loc=Local" -path db/migrations up
+migrate -database "mysql://root:@tcp(localhost:3306)/go_clean_arch_saas?charset=utf8mb4&parseTime=True&loc=Local" -path db/migrations up
 ```
 
 ## Run Application
