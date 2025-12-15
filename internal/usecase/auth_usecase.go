@@ -122,6 +122,7 @@ func (u *AuthUseCase) Register(ctx context.Context, request *model.RegisterReque
 		Name:              request.Name,
 		Email:             request.Email,
 		Password:          string(hashedPassword),
+		SystemRole:        entity.SystemRoleUser, // Default to regular user
 		EmailVerified:     false,
 		VerificationToken: &verificationToken,
 		OrganizationID:    orgID,
@@ -138,7 +139,7 @@ func (u *AuthUseCase) Register(ctx context.Context, request *model.RegisterReque
 	orgMember := &entity.OrganizationMember{
 		OrganizationID: orgID,
 		UserID:         userID,
-		Role:           "owner",
+		Role:           entity.OrgRoleOwner, // Use constant instead of hardcoded string
 		JoinedAt:       time.Now().UnixMilli(),
 	}
 
