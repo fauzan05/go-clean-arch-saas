@@ -1,50 +1,143 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Go Clean Arch SaaS",
-    "description": "Golang Clean Architecture SaaS",
-    "version": "1.0.0"
+    "title": "Go Clean Architecture SaaS API",
+    "description": "Production-ready SaaS API with JWT authentication, multi-tenancy, subscription management, and email verification",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "email": "support@example.com"
+    }
   },
   "servers": [
     {
-      "url": "http://localhost:3000"
+      "url": "http://localhost:3000",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.yourdomain.com",
+      "description": "Production server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "Authentication",
+      "description": "Auth endpoints (register, login, logout, refresh, verify email)"
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints"
+    },
+    {
+      "name": "Organizations",
+      "description": "Organization management endpoints"
+    },
+    {
+      "name": "Subscriptions",
+      "description": "Subscription and plan management endpoints"
     }
   ],
   "paths": {
-    "/api/users": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "description": "Simple health check endpoint",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Readiness check",
+        "description": "Check if service is ready (includes database connection test)",
+        "responses": {
+          "200": {
+            "description": "Service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ready"
+                    },
+                    "database": {
+                      "type": "string",
+                      "example": "connected"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service is not ready"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
       "post": {
-        "tags": [
-          "User API"
-        ],
-        "description": "Register new user",
+        "tags": ["Authentication"],
+        "summary": "Register new organization and user",
+        "description": "Create new organization with initial owner user. Sends email verification link.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["email", "password", "name", "organization_name"],
                 "properties": {
-                  "id": {
-                    "type": "string"
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "john@example.com"
                   },
                   "password": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 8,
+                    "example": "SecurePass123!"
                   },
                   "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "John Doe"
+                  },
+                  "organization_name": {
+                    "type": "string",
+                    "example": "Acme Corp"
                   }
-                },
-                "required": [
-                  "id",
-                  "name",
-                  "password"
-                ]
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Success register new user",
+            "description": "Registration successful",
             "content": {
               "application/json": {
                 "schema": {
@@ -53,17 +146,11 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "id": {
-                          "type": "string"
+                        "user": {
+                          "$ref": "#/components/schemas/UserResponse"
                         },
-                        "name": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "number"
-                        },
-                        "updated_at": {
-                          "type": "number"
+                        "organization": {
+                          "$ref": "#/components/schemas/OrganizationResponse"
                         }
                       }
                     }
@@ -71,73 +158,41 @@
                 }
               }
             }
-          }
-        }
-      },
-      "delete": {
-        "description": "Logout user",
-        "tags": [
-          "User API"
-        ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success logout user",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
     },
-    "/api/users/_login": {
+    "/api/v1/auth/verify-email": {
       "post": {
-        "description": "Login user",
-        "tags": [
-          "User API"
-        ],
+        "tags": ["Authentication"],
+        "summary": "Verify email address",
+        "description": "Verify user's email using token from verification email",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["token"],
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  },
-                  "password": {
-                    "type": "string"
+                  "token": {
+                    "type": "string",
+                    "example": "abc123def456..."
                   }
-                },
-                "required": [
-                  "id",
-                  "password"
-                ]
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Success login",
+            "description": "Email verified successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -146,8 +201,9 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "token": {
-                          "type": "string"
+                        "message": {
+                          "type": "string",
+                          "example": "Email verified successfully"
                         }
                       }
                     }
@@ -155,29 +211,42 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
         }
       }
     },
-    "/api/users/_current": {
-      "get": {
-        "tags": [
-          "User API"
-        ],
-        "description": "Get current user",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
+    "/api/v1/auth/resend-verification": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Resend verification email",
+        "description": "Generate new verification token and send email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "john@example.com"
+                  }
+                }
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
-            "description": "Success register new user",
+            "description": "Verification email sent",
             "content": {
               "application/json": {
                 "schema": {
@@ -186,17 +255,9 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "number"
-                        },
-                        "updated_at": {
-                          "type": "number"
+                        "message": {
+                          "type": "string",
+                          "example": "Verification email sent"
                         }
                       }
                     }
@@ -204,35 +265,229 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login user",
+        "description": "Authenticate user and return JWT tokens",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "john@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "SecurePass123!"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "access_token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIs..."
+                        },
+                        "refresh_token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIs..."
+                        },
+                        "user": {
+                          "$ref": "#/components/schemas/UserResponse"
+                        },
+                        "organization": {
+                          "$ref": "#/components/schemas/OrganizationResponse"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": ["owner", "admin", "member"],
+                          "example": "owner"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Refresh access token",
+        "description": "Get new access token using refresh token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refresh_token"],
+                "properties": {
+                  "refresh_token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIs..."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "access_token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIs..."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "delete": {
+        "tags": ["Authentication"],
+        "summary": "Logout user",
+        "description": "Invalidate refresh token",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "example": "Logout successful"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/users/current": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get current user",
+        "description": "Get authenticated user's profile",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UserResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
       "patch": {
-        "tags": [
-          "User API"
-        ],
-        "description": "Update current user",
-        "parameters": [
+        "tags": ["Users"],
+        "summary": "Update current user",
+        "description": "Update authenticated user's profile",
+        "security": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "BearerAuth": []
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "password": {
-                    "type": "string"
-                  },
                   "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "John Doe Updated"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "example": "NewSecurePass123!"
                   }
                 }
               }
@@ -241,70 +496,79 @@
         },
         "responses": {
           "200": {
-            "description": "Success register new user",
+            "description": "User updated successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "number"
-                        },
-                        "updated_at": {
-                          "type": "number"
-                        }
-                      }
+                      "$ref": "#/components/schemas/UserResponse"
                     }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
-    "/api/contacts": {
-      "post": {
-        "tags": [
-          "Contact API"
-        ],
-        "description": "Create new contact",
-        "parameters": [
+    "/api/v1/organizations/current": {
+      "get": {
+        "tags": ["Organizations"],
+        "summary": "Get current organization",
+        "description": "Get authenticated user's organization details",
+        "security": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Organization details retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrganizationResponse"
+                    }
+                  }
+                }
+              }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Organizations"],
+        "summary": "Update current organization",
+        "description": "Update organization details (requires admin or owner role)",
+        "security": [
+          {
+            "BearerAuth": []
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "first_name": {
-                    "type": "string"
-                  },
-                  "last_name": {
-                    "type": "string"
-                  },
-                  "email": {
-                    "type": "string"
-                  },
-                  "phone": {
-                    "type": "string"
+                  "name": {
+                    "type": "string",
+                    "example": "Acme Corp Updated"
                   }
                 }
               }
@@ -313,105 +577,45 @@
         },
         "responses": {
           "200": {
-            "description": "Success create new contact",
+            "description": "Organization updated successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "first_name": {
-                          "type": "string"
-                        },
-                        "last_name": {
-                          "type": "string"
-                        },
-                        "email": {
-                          "type": "string"
-                        },
-                        "phone": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "number"
-                        },
-                        "updated_at": {
-                          "type": "number"
-                        }
-                      }
+                      "$ref": "#/components/schemas/OrganizationResponse"
                     }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         }
-      },
+      }
+    },
+    "/api/v1/organizations/members": {
       "get": {
-        "tags": [
-          "Contact API"
-        ],
-        "description": "Get all contacts",
-        "parameters": [
+        "tags": ["Organizations"],
+        "summary": "List organization members",
+        "description": "Get all members of current organization",
+        "security": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "default": 1
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "default": 10
-            }
-          },
-          {
-            "name": "name",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "phone",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "email",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "BearerAuth": []
           }
         ],
         "responses": {
           "200": {
-            "description": "Success get list of contacts",
+            "description": "Members list retrieved",
             "content": {
               "application/json": {
                 "schema": {
@@ -420,295 +624,133 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "first_name": {
-                            "type": "string"
-                          },
-                          "last_name": {
-                            "type": "string"
-                          },
-                          "email": {
-                            "type": "string"
-                          },
-                          "phone": {
-                            "type": "string"
-                          },
-                          "created_at": {
-                            "type": "number"
-                          },
-                          "updated_at": {
-                            "type": "number"
-                          }
-                        }
-                      }
-                    },
-                    "paging": {
-                      "type": "object",
-                      "properties": {
-                        "page": {
-                          "type": "number"
-                        },
-                        "size": {
-                          "type": "number"
-                        },
-                        "total_item": {
-                          "type": "number"
-                        },
-                        "total_page": {
-                          "type": "number"
-                        }
+                        "$ref": "#/components/schemas/OrganizationMemberResponse"
                       }
                     }
                   }
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
-    "/api/contacts/{contactId}": {
-      "get": {
-        "tags": [
-          "Contact API"
-        ],
-        "description": "Get contact by id",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "contactId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success get contact",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "first_name": {
-                          "type": "string"
-                        },
-                        "last_name": {
-                          "type": "string"
-                        },
-                        "email": {
-                          "type": "string"
-                        },
-                        "phone": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "number"
-                        },
-                        "updated_at": {
-                          "type": "number"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Contact API"
-        ],
-        "description": "Update contact by id",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "contactId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "first_name": {
-                    "type": "string"
-                  },
-                  "last_name": {
-                    "type": "string"
-                  },
-                  "email": {
-                    "type": "string"
-                  },
-                  "phone": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success update contact",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "first_name": {
-                          "type": "string"
-                        },
-                        "last_name": {
-                          "type": "string"
-                        },
-                        "email": {
-                          "type": "string"
-                        },
-                        "phone": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "number"
-                        },
-                        "updated_at": {
-                          "type": "number"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
+    "/api/v1/organizations/members/{userId}": {
       "delete": {
-        "tags": [
-          "Contact API"
+        "tags": ["Organizations"],
+        "summary": "Remove organization member",
+        "description": "Remove member from organization (requires admin or owner role)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ],
-        "description": "Delete contact by id",
         "parameters": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "contactId",
+            "name": "userId",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "User ID to remove"
           }
         ],
         "responses": {
           "200": {
-            "description": "Success delete contact",
+            "description": "Member removed successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "boolean"
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "example": "Member removed successfully"
+                        }
+                      }
                     }
                   }
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
         }
       }
     },
-    "/api/contacts/{contactId}/addresses": {
+    "/api/v1/subscriptions/current": {
+      "get": {
+        "tags": ["Subscriptions"],
+        "summary": "Get current subscription",
+        "description": "Get current organization's subscription details",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription details retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/subscriptions/upgrade": {
       "post": {
-        "tags": [
-          "Address API"
-        ],
-        "description": "Create new address",
-        "parameters": [
+        "tags": ["Subscriptions"],
+        "summary": "Upgrade/downgrade subscription",
+        "description": "Change subscription plan (requires owner role)",
+        "security": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "contactId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "BearerAuth": []
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["plan_id"],
                 "properties": {
-                  "street": {
-                    "type": "string"
-                  },
-                  "city": {
-                    "type": "string"
-                  },
-                  "province": {
-                    "type": "string"
-                  },
-                  "country": {
-                    "type": "string"
-                  },
-                  "postal_code": {
-                    "type": "string"
+                  "plan_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
                   }
                 }
               }
@@ -717,154 +759,45 @@
         },
         "responses": {
           "200": {
-            "description": "Success create new address",
+            "description": "Subscription upgraded successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "street": {
-                          "type": "string"
-                        },
-                        "city": {
-                          "type": "string"
-                        },
-                        "province": {
-                          "type": "string"
-                        },
-                        "country": {
-                          "type": "string"
-                        },
-                        "postal_code": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "number"
-                        },
-                        "updated_at": {
-                          "type": "number"
-                        }
-                      }
+                      "$ref": "#/components/schemas/SubscriptionResponse"
                     }
                   }
                 }
               }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "Address API"
-        ],
-        "description": "Get all addresses",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
             }
           },
-          {
-            "name": "contactId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success get list of addresses",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "street": {
-                            "type": "string"
-                          },
-                          "city": {
-                            "type": "string"
-                          },
-                          "province": {
-                            "type": "string"
-                          },
-                          "country": {
-                            "type": "string"
-                          },
-                          "postal_code": {
-                            "type": "string"
-                          },
-                          "created_at": {
-                            "type": "number"
-                          },
-                          "updated_at": {
-                            "type": "number"
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         }
       }
     },
-    "/api/contacts/{contactId}/addresses/{addressId}": {
-      "get": {
-        "tags": [
-          "Address API"
-        ],
-        "description": "Get address by id",
-        "parameters": [
+    "/api/v1/subscriptions/cancel": {
+      "post": {
+        "tags": ["Subscriptions"],
+        "summary": "Cancel subscription",
+        "description": "Cancel current subscription (requires owner role)",
+        "security": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "contactId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "addressId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "BearerAuth": []
           }
         ],
         "responses": {
           "200": {
-            "description": "Success create new address",
+            "description": "Subscription cancelled successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -873,29 +806,9 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "street": {
-                          "type": "string"
-                        },
-                        "city": {
-                          "type": "string"
-                        },
-                        "province": {
-                          "type": "string"
-                        },
-                        "country": {
-                          "type": "string"
-                        },
-                        "postal_code": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "number"
-                        },
-                        "updated_at": {
-                          "type": "number"
+                        "message": {
+                          "type": "string",
+                          "example": "Subscription cancelled successfully"
                         }
                       }
                     }
@@ -903,155 +816,285 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT access token (expires in 1 hour)"
+      }
+    },
+    "schemas": {
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "example": false
+          },
+          "system_role": {
+            "type": "string",
+            "enum": ["user", "support", "admin", "super_admin"],
+            "example": "user"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "660e8400-e29b-41d4-a716-446655440001"
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1700000000000
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1700000000000
           }
         }
       },
-      "put": {
-        "tags": [
-          "Address API"
-        ],
-        "description": "Update address by id",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+      "OrganizationResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "660e8400-e29b-41d4-a716-446655440001"
           },
-          {
-            "name": "contactId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+          "name": {
+            "type": "string",
+            "example": "Acme Corp"
           },
-          {
-            "name": "addressId",
-            "in": "path",
-            "required": true,
+          "slug": {
+            "type": "string",
+            "example": "acme-corp"
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1700000000000
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1700000000000
+          }
+        }
+      },
+      "OrganizationMemberResponse": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["owner", "admin", "member"],
+            "example": "owner"
+          },
+          "joined_at": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1700000000000
+          }
+        }
+      },
+      "SubscriptionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "770e8400-e29b-41d4-a716-446655440002"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "660e8400-e29b-41d4-a716-446655440001"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PlanResponse"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "cancelled", "expired"],
+            "example": "active"
+          },
+          "current_period_start": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1700000000000
+          },
+          "current_period_end": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1702592000000
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1700000000000
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1700000000000
+          }
+        }
+      },
+      "PlanResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "880e8400-e29b-41d4-a716-446655440003"
+          },
+          "name": {
+            "type": "string",
+            "example": "Pro"
+          },
+          "slug": {
+            "type": "string",
+            "example": "pro"
+          },
+          "price": {
+            "type": "number",
+            "format": "float",
+            "example": 29.99
+          },
+          "billing_period": {
+            "type": "string",
+            "enum": ["monthly", "yearly"],
+            "example": "monthly"
+          },
+          "features": {
+            "type": "string",
+            "example": "Unlimited projects,10 team members,24/7 support"
+          },
+          "limits": {
+            "type": "string",
+            "example": "{\"projects\":0,\"users\":10,\"storage\":100}"
+          },
+          "is_active": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Error message"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request - Invalid input",
+        "content": {
+          "application/json": {
             "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "street": {
-                    "type": "string"
-                  },
-                  "city": {
-                    "type": "string"
-                  },
-                  "province": {
-                    "type": "string"
-                  },
-                  "country": {
-                    "type": "string"
-                  },
-                  "postal_code": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success create new address",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "street": {
-                          "type": "string"
-                        },
-                        "city": {
-                          "type": "string"
-                        },
-                        "province": {
-                          "type": "string"
-                        },
-                        "country": {
-                          "type": "string"
-                        },
-                        "postal_code": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "number"
-                        },
-                        "updated_at": {
-                          "type": "number"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": "Validation failed"
             }
           }
         }
       },
-      "delete": {
-        "tags": [
-          "Address API"
-        ],
-        "description": "Delete address by id",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
+      "Unauthorized": {
+        "description": "Unauthorized - Invalid or missing token",
+        "content": {
+          "application/json": {
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "contactId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "addressId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": "Unauthorized"
             }
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success create new address",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
+        }
+      },
+      "Forbidden": {
+        "description": "Forbidden - Insufficient permissions",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": "Forbidden"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not found - Resource does not exist",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": "Not found"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict - Resource already exists",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": "Email already exists"
             }
           }
         }
