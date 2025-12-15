@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Golang Clean Architecture",
-    "description": "Golang Clean Architecture",
+    "title": "Go Clean Arch SaaS",
+    "description": "Golang Clean Architecture SaaS",
     "version": "1.0.0"
   },
   "servers": [

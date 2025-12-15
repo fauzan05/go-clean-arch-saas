@@ -2,11 +2,10 @@ package usecase
 
 import (
 	"context"
-	"golang-clean-architecture/internal/entity"
-	"golang-clean-architecture/internal/gateway/messaging"
-	"golang-clean-architecture/internal/model"
-	"golang-clean-architecture/internal/model/converter"
-	"golang-clean-architecture/internal/repository"
+	"go-clean-arch-saas/internal/entity"
+	"go-clean-arch-saas/internal/model"
+	"go-clean-arch-saas/internal/model/converter"
+	"go-clean-arch-saas/internal/repository"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -20,17 +19,15 @@ type ContactUseCase struct {
 	Log               *logrus.Logger
 	Validate          *validator.Validate
 	ContactRepository *repository.ContactRepository
-	ContactProducer   *messaging.ContactProducer
 }
 
 func NewContactUseCase(db *gorm.DB, logger *logrus.Logger, validate *validator.Validate,
-	contactRepository *repository.ContactRepository, contactProducer *messaging.ContactProducer) *ContactUseCase {
+	contactRepository *repository.ContactRepository) *ContactUseCase {
 	return &ContactUseCase{
 		DB:                db,
 		Log:               logger,
 		Validate:          validate,
 		ContactRepository: contactRepository,
-		ContactProducer:   contactProducer,
 	}
 }
 
@@ -60,17 +57,6 @@ func (c *ContactUseCase) Create(ctx context.Context, request *model.CreateContac
 	if err := tx.Commit().Error; err != nil {
 		c.Log.WithError(err).Error("error creating contact")
 		return nil, fiber.ErrInternalServerError
-	}
-
-	if c.ContactProducer != nil {
-		event := converter.ContactToEvent(contact)
-		if err := c.ContactProducer.Send(event); err != nil {
-			c.Log.WithError(err).Error("error publishing contact created event")
-			return nil, fiber.ErrInternalServerError
-		}
-		c.Log.Info("Published contact created event")
-	} else {
-		c.Log.Info("Kafka producer is disabled, skipping contact created event")
 	}
 
 	return converter.ContactToResponse(contact), nil
@@ -104,17 +90,6 @@ func (c *ContactUseCase) Update(ctx context.Context, request *model.UpdateContac
 	if err := tx.Commit().Error; err != nil {
 		c.Log.WithError(err).Error("error updating contact")
 		return nil, fiber.ErrInternalServerError
-	}
-
-	if c.ContactProducer != nil {
-		event := converter.ContactToEvent(contact)
-		if err := c.ContactProducer.Send(event); err != nil {
-			c.Log.WithError(err).Error("error publishing contact updated event")
-			return nil, fiber.ErrInternalServerError
-		}
-		c.Log.Info("Published contact updated event")
-	} else {
-		c.Log.Info("Kafka producer is disabled, skipping contact updated event")
 	}
 
 	return converter.ContactToResponse(contact), nil

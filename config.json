@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "golang-clean-architecture"
+    "name": "go-clean-arch-saas"
   },
   "web": {
     "prefork": false,
@@ -14,27 +14,11 @@
     "password": "",
     "host": "localhost",
     "port": 3306,
-    "name": "golang_clean_architecture",
+    "name": "go_clean_arch_saas",
     "pool": {
       "idle": 10,
       "max": 100,
       "lifetime": 300
-    }
-  },
-  "kafka": {
-    "bootstrap": {
-      "servers": "localhost:9092"
-    },
-    "group": {
-      "id": "golang-clean-architecture"
-    },
-    "auto": {
-      "offset": {
-        "reset": "earliest"
-      }
-    },
-    "producer": {
-      "enabled": false
     }
   }
 }

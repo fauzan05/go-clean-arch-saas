@@ -1,8 +1,8 @@
 package converter
 
 import (
-	"golang-clean-architecture/internal/entity"
-	"golang-clean-architecture/internal/model"
+	"go-clean-arch-saas/internal/entity"
+	"go-clean-arch-saas/internal/model"
 )
 
 func AddressToResponse(address *entity.Address) *model.AddressResponse {
@@ -18,16 +18,3 @@ func AddressToResponse(address *entity.Address) *model.AddressResponse {
 	}
 }
 
-func AddressToEvent(address *entity.Address) *model.AddressEvent {
-	return &model.AddressEvent{
-		ID:         address.ID,
-		ContactId:  address.ContactId,
-		Street:     address.Street,
-		City:       address.City,
-		Province:   address.Province,
-		PostalCode: address.PostalCode,
-		Country:    address.Country,
-		CreatedAt:  address.CreatedAt,
-		UpdatedAt:  address.UpdatedAt,
-	}
-}

@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"golang-clean-architecture/internal/model"
-	"golang-clean-architecture/internal/usecase"
+	"go-clean-arch-saas/internal/model"
+	"go-clean-arch-saas/internal/usecase"
 
 	"github.com/gofiber/fiber/v2"
 )

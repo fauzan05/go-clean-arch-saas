@@ -1,9 +1,9 @@
 package http
 
 import (
-	"golang-clean-architecture/internal/delivery/http/middleware"
-	"golang-clean-architecture/internal/model"
-	"golang-clean-architecture/internal/usecase"
+	"go-clean-arch-saas/internal/delivery/http/middleware"
+	"go-clean-arch-saas/internal/model"
+	"go-clean-arch-saas/internal/usecase"
 	"math"
 
 	"github.com/gofiber/fiber/v2"

@@ -2,11 +2,10 @@ package usecase
 
 import (
 	"context"
-	"golang-clean-architecture/internal/entity"
-	"golang-clean-architecture/internal/gateway/messaging"
-	"golang-clean-architecture/internal/model"
-	"golang-clean-architecture/internal/model/converter"
-	"golang-clean-architecture/internal/repository"
+	"go-clean-arch-saas/internal/entity"
+	"go-clean-arch-saas/internal/model"
+	"go-clean-arch-saas/internal/model/converter"
+	"go-clean-arch-saas/internal/repository"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -21,17 +20,15 @@ type UserUseCase struct {
 	Log            *logrus.Logger
 	Validate       *validator.Validate
 	UserRepository *repository.UserRepository
-	UserProducer   *messaging.UserProducer
 }
 
 func NewUserUseCase(db *gorm.DB, logger *logrus.Logger, validate *validator.Validate,
-	userRepository *repository.UserRepository, userProducer *messaging.UserProducer) *UserUseCase {
+	userRepository *repository.UserRepository) *UserUseCase {
 	return &UserUseCase{
 		DB:             db,
 		Log:            logger,
 		Validate:       validate,
 		UserRepository: userRepository,
-		UserProducer:   userProducer,
 	}
 }
 
@@ -102,17 +99,6 @@ func (c *UserUseCase) Create(ctx context.Context, request *model.RegisterUserReq
 		return nil, fiber.ErrInternalServerError
 	}
 
-	if c.UserProducer != nil {
-		event := converter.UserToEvent(user)
-		c.Log.Info("Publishing user created event")
-		if err = c.UserProducer.Send(event); err != nil {
-			c.Log.Warnf("Failed publish user created event : %+v", err)
-			return nil, fiber.ErrInternalServerError
-		}
-	} else {
-		c.Log.Info("Kafka producer is disabled, skipping user created event")
-	}
-
 	return converter.UserToResponse(user), nil
 }
 
@@ -145,17 +131,6 @@ func (c *UserUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 	if err := tx.Commit().Error; err != nil {
 		c.Log.Warnf("Failed commit transaction : %+v", err)
 		return nil, fiber.ErrInternalServerError
-	}
-
-	if c.UserProducer != nil {
-		event := converter.UserToEvent(user)
-		c.Log.Info("Publishing user login event")
-		if err := c.UserProducer.Send(event); err != nil {
-			c.Log.Warnf("Failed publish user login event : %+v", err)
-			return nil, fiber.ErrInternalServerError
-		}
-	} else {
-		c.Log.Info("Kafka producer is disabled, skipping user login event")
 	}
 
 	return converter.UserToTokenResponse(user), nil
@@ -211,17 +186,6 @@ func (c *UserUseCase) Logout(ctx context.Context, request *model.LogoutUserReque
 		return false, fiber.ErrInternalServerError
 	}
 
-	if c.UserProducer != nil {
-		event := converter.UserToEvent(user)
-		c.Log.Info("Publishing user logout event")
-		if err := c.UserProducer.Send(event); err != nil {
-			c.Log.Warnf("Failed publish user logout event : %+v", err)
-			return false, fiber.ErrInternalServerError
-		}
-	} else {
-		c.Log.Info("Kafka producer is disabled, skipping user logout event")
-	}
-
 	return true, nil
 }
 
@@ -261,17 +225,6 @@ func (c *UserUseCase) Update(ctx context.Context, request *model.UpdateUserReque
 	if err := tx.Commit().Error; err != nil {
 		c.Log.Warnf("Failed commit transaction : %+v", err)
 		return nil, fiber.ErrInternalServerError
-	}
-
-	if c.UserProducer != nil {
-		event := converter.UserToEvent(user)
-		c.Log.Info("Publishing user updated event")
-		if err := c.UserProducer.Send(event); err != nil {
-			c.Log.Warnf("Failed publish user updated event : %+v", err)
-			return nil, fiber.ErrInternalServerError
-		}
-	} else {
-		c.Log.Info("Kafka producer is disabled, skipping user updated event")
 	}
 
 	return converter.UserToResponse(user), nil

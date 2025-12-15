@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"golang-clean-architecture/internal/config"
+	"go-clean-arch-saas/internal/config"
 )
 
 func main() {
@@ -11,7 +11,6 @@ func main() {
 	db := config.NewDatabase(viperConfig, log)
 	validate := config.NewValidator(viperConfig)
 	app := config.NewFiber(viperConfig)
-	producer := config.NewKafkaProducer(viperConfig, log)
 
 	config.Bootstrap(&config.BootstrapConfig{
 		DB:       db,
@@ -19,7 +18,6 @@ func main() {
 		Log:      log,
 		Validate: validate,
 		Config:   viperConfig,
-		Producer: producer,
 	})
 
 	webPort := viperConfig.GetInt("web.port")

@@ -1,7 +1,7 @@
 package test
 
 import (
-	"golang-clean-architecture/internal/entity"
+	"go-clean-arch-saas/internal/entity"
 	"strconv"
 	"testing"
 

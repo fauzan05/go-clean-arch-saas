@@ -2,8 +2,8 @@ package test
 
 import (
 	"encoding/json"
-	"golang-clean-architecture/internal/entity"
-	"golang-clean-architecture/internal/model"
+	"go-clean-arch-saas/internal/entity"
+	"go-clean-arch-saas/internal/model"
 	"io"
 	"net/http"
 	"net/http/httptest"
