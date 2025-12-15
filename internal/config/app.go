@@ -6,6 +6,7 @@ import (
 	"go-clean-arch-saas/internal/delivery/http/route"
 	"go-clean-arch-saas/internal/repository"
 	"go-clean-arch-saas/internal/usecase"
+	"go-clean-arch-saas/pkg/email"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -26,6 +27,16 @@ func Bootstrap(config *BootstrapConfig) {
 	// setup JWT service
 	jwtService := NewJWT(config.Config)
 
+	// setup Email service
+	emailService := email.NewEmailService(
+		config.Config.GetString("email.host"),
+		config.Config.GetInt("email.port"),
+		config.Config.GetString("email.username"),
+		config.Config.GetString("email.password"),
+		config.Config.GetString("email.from"),
+		config.Log,
+	)
+
 	// setup repositories
 	userRepository := repository.NewUserRepository(config.Log)
 	organizationRepository := repository.NewOrganizationRepository(config.Log)
@@ -44,6 +55,8 @@ func Bootstrap(config *BootstrapConfig) {
 		planRepository,
 		subscriptionRepository,
 		jwtService,
+		emailService,
+		config.Config.GetString("base_url"),
 	)
 	userUseCase := usecase.NewUserUseCase(config.DB, config.Log, config.Validate, userRepository)
 	organizationUseCase := usecase.NewOrganizationUseCase(
@@ -79,6 +92,7 @@ func Bootstrap(config *BootstrapConfig) {
 		SubscriptionController: subscriptionController,
 		HealthController:       healthController,
 		AuthMiddleware:         authMiddleware,
+		Config:                 config.Config,
 	}
 	routeConfig.Setup()
 }

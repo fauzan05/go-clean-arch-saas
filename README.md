@@ -7,13 +7,14 @@ A production-ready SaaS starter kit built with Go, following Clean Architecture 
 - **Clean Architecture**: Separation of concerns with clear boundaries between layers
 - **Flexible Configuration**: Support for .env, config.json, or environment variables with priority override
 - **JWT Authentication**: Access tokens (1 hour) + Refresh tokens (7 days)
+- **Email Verification**: Secure registration flow with email verification tokens
 - **Multi-Tenancy**: Organization-first design with role-based access control
 - **UUID Primary Keys**: CHAR(36) format for global uniqueness and security
 - **Soft Delete**: Data retention with deleted_at timestamps on all tables
 - **Subscription Management**: Tiered plans with upgrade/downgrade support
 - **Health Checks**: Liveness and readiness probes for monitoring
 - **Database Migrations**: Version-controlled schema changes with golang-migrate
-- **Comprehensive Testing**: 59 passing tests covering all features and database schema
+- **Comprehensive Testing**: 48 passing tests covering all features including email verification
 - **Docker Support**: Multi-stage builds with docker-compose
 - **Frontend Friendly**: CORS enabled, rate limiting disabled by default
 - **Audit Logging**: Optional audit trail for compliance (table created, implementation optional)
@@ -45,8 +46,14 @@ internal/
       └── http/       - HTTP handlers and routes
           └── middleware/ - Auth middleware
 pkg/
-  └── jwt/            - JWT service
+  ├── jwt/            - JWT service
+  └── email/          - Email service with HTML templates
+      └── templates/  - Email HTML templates (embedded)
 db/migrations/        - Database migration files
+docs/                 - Additional documentation
+  ├── CONFIGURATION.md - Configuration guide
+  ├── EMAIL_SERVICE.md - Email service & async patterns
+  └── TESTING.md      - Testing documentation
 ```
 
 ## 🎯 API Endpoints
@@ -56,7 +63,9 @@ db/migrations/        - Database migration files
 - `GET /ready` - Readiness check (includes DB connection test)
 
 ### Authentication (Public)
-- `POST /api/v1/auth/register` - Register new organization + user
+- `POST /api/v1/auth/register` - Register new organization + user (sends verification email)
+- `POST /api/v1/auth/verify-email` - Verify email with token
+- `POST /api/v1/auth/resend-verification` - Resend verification email
 - `POST /api/v1/auth/login` - Login with email/password
 - `POST /api/v1/auth/refresh` - Refresh access token
 
@@ -144,6 +153,80 @@ make build
 make docker-up
 ```
 
+## 📧 Email Verification
+
+Email verification is **optional**. The system works in two modes:
+
+### Development Mode (Email Disabled - Default)
+```bash
+# Leave email config empty in .env
+EMAIL_HOST=
+EMAIL_USERNAME=
+```
+- Verification emails are **logged to console** instead of being sent
+- Users are registered with `email_verified=false`
+- Useful for local development without SMTP setup
+- Check console logs to see verification token
+
+### Production Mode (Email Enabled)
+```bash
+# Configure SMTP in .env
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USERNAME=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
+EMAIL_FROM=noreply@yourdomain.com
+BASE_URL=https://yourdomain.com
+```
+
+**For Gmail:**
+1. Enable 2FA on your Google account
+2. Generate App Password: https://myaccount.google.com/apppasswords
+3. Use app password in `EMAIL_PASSWORD`
+
+### Registration & Verification Flow
+
+**Async Email Sending**: Emails dikirim secara **asynchronous menggunakan goroutine** (fire-and-forget pattern). Registration tidak block/gagal jika email error.
+
+1. **Register**: `POST /api/v1/auth/register`
+   - User registered with `email_verified=false`
+   - Verification email sent **asynchronously** (or logged if SMTP not configured)
+   - Returns user data with `email_verified: false`
+   - Email uses HTML template: `pkg/email/templates/verify_email.html`
+
+2. **Verify**: `POST /api/v1/auth/verify-email`
+   ```json
+   {
+     "token": "verification-token-from-email"
+   }
+   ```
+   - Marks email as verified
+   - Sets `email_verified=true` and `email_verified_at`
+   - Clears verification token
+
+3. **Resend**: `POST /api/v1/auth/resend-verification`
+   ```json
+   {
+     "email": "user@example.com"
+   }
+   ```
+   - Generates new verification token
+   - Sends new verification email **asynchronously**
+
+**Testing Verification:**
+```bash
+# 1. Register user
+curl -X POST http://localhost:3000/api/v1/auth/register \\
+  -H "Content-Type: application/json" \\
+  -d '{"email":"test@example.com","password":"password123","name":"Test","organization_name":"Test Org"}'
+
+# 2. Check console logs for verification token (dev mode)
+# 3. Verify email
+curl -X POST http://localhost:3000/api/v1/auth/verify-email \\
+  -H "Content-Type: application/json" \\
+  -d '{"token":"TOKEN_FROM_LOGS"}'
+```
+
 ## 📝 Configuration
 
 The application supports **flexible configuration** - choose your preferred method:
@@ -170,6 +253,10 @@ APP_ENV=development
 # Server
 WEB_PORT=3000
 WEB_PREFORK=false
+
+# API Versioning
+API_PREFIX=/api
+API_VERSION=v1
 
 # Database
 DB_HOST=localhost
@@ -212,6 +299,10 @@ Edit `config.json` directly:
   "web": {
     "prefork": false,
     "port": 3000
+  },
+  "api": {
+    "prefix": "/api",
+    "version": "v1"
   },
   "database": {
     "username": "root",
@@ -261,6 +352,8 @@ DB_NAME=my_custom_database
 |---------------------|-----------|-------------|---------|
 | `APP_NAME` | `app.name` | Application name | `go-clean-arch-saas` |
 | `APP_ENV` | `app.env` | Environment | `development` |
+| `API_PREFIX` | `api.prefix` | API path prefix | `/api` |
+| `API_VERSION` | `api.version` | API version | `v1` |
 | `WEB_PORT` | `web.port` | HTTP port | `3000` |
 | `WEB_PREFORK` | `web.prefork` | Enable prefork mode | `false` |
 | `DB_HOST` | `database.host` | Database host | `localhost` |
@@ -280,6 +373,14 @@ DB_NAME=my_custom_database
 | `RATE_LIMIT_ENABLED` | `rate_limit.enabled` | Enable rate limiting | `false` |
 | `RATE_LIMIT_RPM` | `rate_limit.rpm` | Requests per minute | `1000` |
 | `LOG_LEVEL` | `log.level` | Log level (0-6) | `6` |
+| `EMAIL_HOST` | `email.host` | SMTP server host | `` (disabled) |
+| `EMAIL_PORT` | `email.port` | SMTP server port | `587` |
+| `EMAIL_USERNAME` | `email.username` | SMTP username | `` |
+| `EMAIL_PASSWORD` | `email.password` | SMTP password | `` |
+| `EMAIL_FROM` | `email.from` | From email address | `noreply@localhost` |
+| `BASE_URL` | `base_url` | Application base URL | `http://localhost:3000` |
+
+> **Note**: Email verification is optional. If `EMAIL_HOST` and `EMAIL_USERNAME` are empty, the system logs verification emails instead of sending them (development mode).
 
 ## 🗄️ Database Schema
 

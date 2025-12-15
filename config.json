@@ -7,6 +7,10 @@
     "prefork": false,
     "port": 3000
   },
+  "api": {
+    "prefix": "/api",
+    "version": "v1"
+  },
   "log": {
     "level": 6
   },
@@ -35,5 +39,13 @@
   "rate_limit": {
     "enabled": false,
     "rpm": 1000
-  }
+  },
+  "email": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "username": "your-email@gmail.com",
+    "password": "your-app-password",
+    "from": "noreply@yourdomain.com"
+  },
+  "base_url": "http://localhost:3000"
 }

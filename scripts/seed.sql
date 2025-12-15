@@ -24,8 +24,9 @@ INSERT INTO organizations (id, name, slug, created_at, updated_at, deleted_at) V
 
 -- Sample user with UUID (password: password123)
 -- Password hash generated with: bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
-INSERT INTO users (id, name, email, password, organization_id, created_at, updated_at, deleted_at) VALUES
-('750e8400-e29b-41d4-a716-446655440001', 'Demo User', 'demo@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '650e8400-e29b-41d4-a716-446655440001', UNIX_TIMESTAMP() * 1000, UNIX_TIMESTAMP() * 1000, NULL);
+-- Email verified for demo user (verification_token is NULL after verification)
+INSERT INTO users (id, name, email, password, email_verified, email_verified_at, verification_token, refresh_token, refresh_token_expires_at, organization_id, created_at, updated_at, deleted_at) VALUES
+('750e8400-e29b-41d4-a716-446655440001', 'Demo User', 'demo@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', TRUE, UNIX_TIMESTAMP() * 1000, NULL, NULL, NULL, '650e8400-e29b-41d4-a716-446655440001', UNIX_TIMESTAMP() * 1000, UNIX_TIMESTAMP() * 1000, NULL);
 
 -- Assign user to organization as owner
 INSERT INTO organization_members (organization_id, user_id, role, joined_at, deleted_at) VALUES

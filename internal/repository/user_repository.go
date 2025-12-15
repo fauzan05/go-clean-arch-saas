@@ -31,3 +31,7 @@ func (r *UserRepository) CountByEmail(db *gorm.DB, email string) (int64, error) 
 	err := db.Model(&entity.User{}).Where("email = ?", email).Count(&count).Error
 	return count, err
 }
+
+func (r *UserRepository) FindByVerificationToken(db *gorm.DB, user *entity.User, token string) error {
+	return db.Where("verification_token = ?", token).First(user).Error
+}

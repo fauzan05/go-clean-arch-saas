@@ -1,9 +1,11 @@
 package route
 
 import (
+	"fmt"
 	"go-clean-arch-saas/internal/delivery/http"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/spf13/viper"
 )
 
 type RouteConfig struct {
@@ -14,6 +16,14 @@ type RouteConfig struct {
 	SubscriptionController *http.SubscriptionController
 	HealthController       *http.HealthController
 	AuthMiddleware         fiber.Handler
+	Config                 *viper.Viper
+}
+
+// getAPIBasePath returns the base path for API routes (e.g., "/api/v1")
+func (c *RouteConfig) getAPIBasePath() string {
+	prefix := c.Config.GetString("api.prefix")
+	version := c.Config.GetString("api.version")
+	return fmt.Sprintf("%s/%s", prefix, version)
 }
 
 func (c *RouteConfig) Setup() {
@@ -28,17 +38,19 @@ func (c *RouteConfig) SetupHealthRoutes() {
 }
 
 func (c *RouteConfig) SetupGuestRoutes() {
-	api := c.App.Group("/api/v1")
+	api := c.App.Group(c.getAPIBasePath())
 
 	// Auth routes
 	auth := api.Group("/auth")
 	auth.Post("/register", c.AuthController.Register)
 	auth.Post("/login", c.AuthController.Login)
 	auth.Post("/refresh", c.AuthController.Refresh)
+	auth.Post("/verify-email", c.AuthController.VerifyEmail)
+	auth.Post("/resend-verification", c.AuthController.ResendVerification)
 }
 
 func (c *RouteConfig) SetupAuthRoutes() {
-	api := c.App.Group("/api/v1")
+	api := c.App.Group(c.getAPIBasePath())
 	api.Use(c.AuthMiddleware)
 
 	// Auth routes (authenticated)

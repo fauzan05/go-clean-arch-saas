@@ -2,10 +2,13 @@ package usecase
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"go-clean-arch-saas/internal/entity"
 	"go-clean-arch-saas/internal/model"
 	"go-clean-arch-saas/internal/model/converter"
 	"go-clean-arch-saas/internal/repository"
+	"go-clean-arch-saas/pkg/email"
 	jwtPkg "go-clean-arch-saas/pkg/jwt"
 	"strings"
 	"time"
@@ -28,6 +31,8 @@ type AuthUseCase struct {
 	PlanRepository               *repository.PlanRepository
 	SubscriptionRepository       *repository.SubscriptionRepository
 	JWTService                   *jwtPkg.JWTService
+	EmailService                 *email.EmailService
+	BaseURL                      string
 }
 
 func NewAuthUseCase(
@@ -40,6 +45,8 @@ func NewAuthUseCase(
 	planRepo *repository.PlanRepository,
 	subRepo *repository.SubscriptionRepository,
 	jwtService *jwtPkg.JWTService,
+	emailService *email.EmailService,
+	baseURL string,
 ) *AuthUseCase {
 	return &AuthUseCase{
 		DB:                           db,
@@ -51,6 +58,8 @@ func NewAuthUseCase(
 		PlanRepository:               planRepo,
 		SubscriptionRepository:       subRepo,
 		JWTService:                   jwtService,
+		EmailService:                 emailService,
+		BaseURL:                      baseURL,
 	}
 }
 
@@ -99,16 +108,25 @@ func (u *AuthUseCase) Register(ctx context.Context, request *model.RegisterReque
 		return nil, fiber.ErrInternalServerError
 	}
 
+	// Generate verification token
+	verificationToken, err := generateVerificationToken()
+	if err != nil {
+		u.Log.Warnf("Failed to generate verification token: %+v", err)
+		return nil, fiber.ErrInternalServerError
+	}
+
 	// Create user
 	userID := uuid.New().String()
 	user := &entity.User{
-		ID:             userID,
-		Name:           request.Name,
-		Email:          request.Email,
-		Password:       string(hashedPassword),
-		OrganizationID: orgID,
-		CreatedAt:      time.Now().UnixMilli(),
-		UpdatedAt:      time.Now().UnixMilli(),
+		ID:                userID,
+		Name:              request.Name,
+		Email:             request.Email,
+		Password:          string(hashedPassword),
+		EmailVerified:     false,
+		VerificationToken: &verificationToken,
+		OrganizationID:    orgID,
+		CreatedAt:         time.Now().UnixMilli(),
+		UpdatedAt:         time.Now().UnixMilli(),
 	}
 
 	if err := u.UserRepository.Create(tx, user); err != nil {
@@ -157,6 +175,15 @@ func (u *AuthUseCase) Register(ctx context.Context, request *model.RegisterReque
 		u.Log.Warnf("Failed to commit transaction: %+v", err)
 		return nil, fiber.ErrInternalServerError
 	}
+
+	// Send verification email (non-blocking, don't fail if email fails)
+	go func() {
+		if err := u.EmailService.SendVerificationEmail(user.Email, user.Name, verificationToken, u.BaseURL); err != nil {
+			u.Log.Warnf("Failed to send verification email to %s: %+v", user.Email, err)
+		} else {
+			u.Log.Infof("Verification email sent to %s", user.Email)
+		}
+	}()
 
 	return &model.RegisterResponse{
 		User:         *converter.UserToResponse(user),
@@ -307,4 +334,120 @@ func (u *AuthUseCase) VerifyToken(ctx context.Context, token string) (*model.Aut
 		Email:          claims.Email,
 		OrganizationID: claims.OrganizationID,
 	}, nil
+}
+
+func (u *AuthUseCase) VerifyEmail(ctx context.Context, request *model.VerifyEmailRequest) (*model.VerifyEmailResponse, error) {
+	tx := u.DB.WithContext(ctx).Begin()
+	defer tx.Rollback()
+
+	// Validate request
+	if err := u.Validate.Struct(request); err != nil {
+		u.Log.Warnf("Invalid request body: %+v", err)
+		return nil, fiber.ErrBadRequest
+	}
+
+	// Find user by verification token
+	user := new(entity.User)
+	if err := u.UserRepository.FindByVerificationToken(tx, user, request.Token); err != nil {
+		u.Log.Warnf("Invalid verification token: %+v", err)
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid or expired verification token")
+	}
+
+	// Check if already verified
+	if user.EmailVerified {
+		return &model.VerifyEmailResponse{
+			Message: "Email already verified",
+		}, nil
+	}
+
+	// Update user - mark email as verified
+	now := time.Now().UnixMilli()
+	user.EmailVerified = true
+	user.EmailVerifiedAt = &now
+	user.VerificationToken = nil // Clear token after verification
+
+	if err := u.UserRepository.Update(tx, user); err != nil {
+		u.Log.Warnf("Failed to update user: %+v", err)
+		return nil, fiber.ErrInternalServerError
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		u.Log.Warnf("Failed to commit transaction: %+v", err)
+		return nil, fiber.ErrInternalServerError
+	}
+
+	u.Log.Infof("Email verified for user: %s (%s)", user.ID, user.Email)
+
+	return &model.VerifyEmailResponse{
+		Message: "Email verified successfully",
+	}, nil
+}
+
+func (u *AuthUseCase) ResendVerification(ctx context.Context, request *model.ResendVerificationRequest) (*model.ResendVerificationResponse, error) {
+	tx := u.DB.WithContext(ctx).Begin()
+	defer tx.Rollback()
+
+	// Validate request
+	if err := u.Validate.Struct(request); err != nil {
+		u.Log.Warnf("Invalid request body: %+v", err)
+		return nil, fiber.ErrBadRequest
+	}
+
+	// Find user by email
+	user := new(entity.User)
+	if err := u.UserRepository.FindByEmail(tx, user, request.Email); err != nil {
+		// Don't reveal if email exists or not for security
+		u.Log.Warnf("User not found for resend verification: %s", request.Email)
+		return &model.ResendVerificationResponse{
+			Message: "If the email exists, a verification link has been sent",
+		}, nil
+	}
+
+	// Check if already verified
+	if user.EmailVerified {
+		return &model.ResendVerificationResponse{
+			Message: "Email already verified",
+		}, nil
+	}
+
+	// Generate new verification token
+	verificationToken, err := generateVerificationToken()
+	if err != nil {
+		u.Log.Warnf("Failed to generate verification token: %+v", err)
+		return nil, fiber.ErrInternalServerError
+	}
+
+	// Update verification token
+	user.VerificationToken = &verificationToken
+	if err := u.UserRepository.Update(tx, user); err != nil {
+		u.Log.Warnf("Failed to update user: %+v", err)
+		return nil, fiber.ErrInternalServerError
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		u.Log.Warnf("Failed to commit transaction: %+v", err)
+		return nil, fiber.ErrInternalServerError
+	}
+
+	// Send verification email (non-blocking)
+	go func() {
+		if err := u.EmailService.SendVerificationEmail(user.Email, user.Name, verificationToken, u.BaseURL); err != nil {
+			u.Log.Warnf("Failed to send verification email to %s: %+v", user.Email, err)
+		} else {
+			u.Log.Infof("Verification email resent to %s", user.Email)
+		}
+	}()
+
+	return &model.ResendVerificationResponse{
+		Message: "If the email exists, a verification link has been sent",
+	}, nil
+}
+
+// generateVerificationToken generates a random verification token
+func generateVerificationToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }

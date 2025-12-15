@@ -79,3 +79,35 @@ func (c *AuthController) Logout(ctx *fiber.Ctx) error {
 
 	return ctx.JSON(model.WebResponse[string]{Data: "Successfully logged out"})
 }
+
+func (c *AuthController) VerifyEmail(ctx *fiber.Ctx) error {
+	request := new(model.VerifyEmailRequest)
+	if err := ctx.BodyParser(request); err != nil {
+		c.Log.Warnf("Failed to parse request body: %+v", err)
+		return fiber.ErrBadRequest
+	}
+
+	response, err := c.AuthUseCase.VerifyEmail(ctx.UserContext(), request)
+	if err != nil {
+		c.Log.Warnf("Failed to verify email: %+v", err)
+		return err
+	}
+
+	return ctx.JSON(model.WebResponse[*model.VerifyEmailResponse]{Data: response})
+}
+
+func (c *AuthController) ResendVerification(ctx *fiber.Ctx) error {
+	request := new(model.ResendVerificationRequest)
+	if err := ctx.BodyParser(request); err != nil {
+		c.Log.Warnf("Failed to parse request body: %+v", err)
+		return fiber.ErrBadRequest
+	}
+
+	response, err := c.AuthUseCase.ResendVerification(ctx.UserContext(), request)
+	if err != nil {
+		c.Log.Warnf("Failed to resend verification: %+v", err)
+		return err
+	}
+
+	return ctx.JSON(model.WebResponse[*model.ResendVerificationResponse]{Data: response})
+}

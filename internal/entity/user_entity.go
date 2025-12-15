@@ -6,6 +6,9 @@ type User struct {
 	Name                  string       `gorm:"column:name"`
 	Email                 string       `gorm:"column:email;unique"`
 	Password              string       `gorm:"column:password"`
+	EmailVerified         bool         `gorm:"column:email_verified;default:0"`
+	EmailVerifiedAt       *int64       `gorm:"column:email_verified_at"`
+	VerificationToken     *string      `gorm:"column:verification_token;index:idx_users_verification_token"`
 	RefreshToken          string       `gorm:"column:refresh_token"`
 	RefreshTokenExpiresAt int64        `gorm:"column:refresh_token_expires_at"`
 	OrganizationID        string       `gorm:"column:organization_id"`

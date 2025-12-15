@@ -49,6 +49,8 @@ func NewViper() *viper.Viper {
 	config.BindEnv("app.env", "APP_ENV")
 	config.BindEnv("web.port", "WEB_PORT")
 	config.BindEnv("web.prefork", "WEB_PREFORK")
+	config.BindEnv("api.prefix", "API_PREFIX")
+	config.BindEnv("api.version", "API_VERSION")
 	config.BindEnv("database.host", "DB_HOST")
 	config.BindEnv("database.port", "DB_PORT")
 	config.BindEnv("database.username", "DB_USERNAME")
@@ -66,6 +68,12 @@ func NewViper() *viper.Viper {
 	config.BindEnv("rate_limit.enabled", "RATE_LIMIT_ENABLED")
 	config.BindEnv("rate_limit.rpm", "RATE_LIMIT_RPM")
 	config.BindEnv("log.level", "LOG_LEVEL")
+	config.BindEnv("email.host", "EMAIL_HOST")
+	config.BindEnv("email.port", "EMAIL_PORT")
+	config.BindEnv("email.username", "EMAIL_USERNAME")
+	config.BindEnv("email.password", "EMAIL_PASSWORD")
+	config.BindEnv("email.from", "EMAIL_FROM")
+	config.BindEnv("base_url", "BASE_URL")
 
 	return config
 }
@@ -79,6 +87,10 @@ func setDefaults(config *viper.Viper) {
 	// Web defaults
 	config.SetDefault("web.port", 3000)
 	config.SetDefault("web.prefork", false)
+
+	// API defaults
+	config.SetDefault("api.prefix", "/api")
+	config.SetDefault("api.version", "v1")
 
 	// Database defaults
 	config.SetDefault("database.host", "localhost")
@@ -106,4 +118,14 @@ func setDefaults(config *viper.Viper) {
 
 	// Logging defaults
 	config.SetDefault("log.level", 6)
+
+	// Email defaults (empty means email disabled in development)
+	config.SetDefault("email.host", "")
+	config.SetDefault("email.port", 587)
+	config.SetDefault("email.username", "")
+	config.SetDefault("email.password", "")
+	config.SetDefault("email.from", "noreply@localhost")
+
+	// Base URL default
+	config.SetDefault("base_url", "http://localhost:3000")
 }
