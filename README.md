@@ -102,6 +102,17 @@ docs/                 - Additional documentation
 git clone <your-repo-url>
 cd go-clean-arch-saas
 
+# Rename the module to match your project name
+# 1. Edit go.mod - change the module name from go-clean-arch-saas to your-project-name
+nano go.mod  # Change: module go-clean-arch-saas -> module your-project-name
+
+# 2. Update all import paths in Go files
+find . -type f -name "*.go" -exec sed -i '' \
+  's|go-clean-arch-saas|your-project-name|g' {} +
+
+# 3. Tidy up dependencies
+go mod tidy
+
 # Choose your configuration method:
 
 # Option A: Using .env file (recommended for Docker)
