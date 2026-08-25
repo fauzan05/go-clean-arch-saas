@@ -1,3 +1,5 @@
+
+
 # Go Clean Architecture SaaS Starter Kit
 
 A production-ready SaaS starter kit built with Go, following Clean Architecture principles. This template provides essential SaaS features including JWT authentication, multi-tenancy, subscription management, and more.
@@ -460,7 +462,7 @@ All seeded records use proper UUID format (CHAR(36)) and have `deleted_at = NULL
 3. System creates user with hashed password
 4. System adds user as organization owner
 5. System creates free subscription
-6. Returns JWT access token + refresh token
+6. Returns the created user and organization (login is required to obtain tokens)
 
 ### Login
 1. User submits email and password
